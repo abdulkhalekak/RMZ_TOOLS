@@ -1,0 +1,102 @@
+name: Build Android APK
+on: 
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:  # ম্যানুয়ালি রান করার অপশন
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+      
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          cmdline-tools-version: latest
+      
+      - name: Install Cordova
+        run: npm install -g cordova
+      
+      - name: Create Cordova Project
+        run: |
+          cordova create app com.rmzteam.toolshub "RMZ Tools Hub"
+          cd app
+          cordova platform add android
+          rm -rf www/*
+          
+          # কপি HTML ফাইল
+          if [ -f ../index.html ]; then
+            cp ../index.html www/index.html
+          else
+            echo '<h1>Welcome to RMZ Tools Hub</h1>' > www/index.html
+          fi
+          
+          # কপি অন্যান্য ফাইল (CSS, JS, ইমেজ)
+          cp -r ../* www/ 2>/dev/null || true
+          
+          # Cordova config যোগ করা
+          cat > config.xml << 'EOF'
+          <?xml version='1.0' encoding='utf-8'?>
+          <widget id="com.rmzteam.toolshub" version="1.0.0" xmlns="http://www.w3.org/ns/widgets" xmlns:cdv="http://cordova.apache.org/ns/1.0">
+              <name>RMZ Tools Hub</name>
+              <description>All Tools in One App</description>
+              <author email="rmzteam@example.com" href="https://t.me/realmoneyincomezone">RMZ Team</author>
+              <content src="index.html" />
+              <access origin="*" />
+              <allow-intent href="http://*/*" />
+              <allow-intent href="https://*/*" />
+              <allow-intent href="tel:*" />
+              <allow-intent href="sms:*" />
+              <allow-intent href="mailto:*" />
+              <allow-intent href="geo:*" />
+              <platform name="android">
+                  <allow-intent href="market:*" />
+                  <preference name="android-minSdkVersion" value="21" />
+                  <preference name="android-targetSdkVersion" value="33" />
+              </platform>
+              <preference name="Orientation" value="default" />
+              <preference name="Fullscreen" value="false" />
+          </widget>
+          EOF
+          
+          # Manifest যোগ করা (ইন্টারনেট পারমিশন)
+          cordova plugin add cordova-plugin-whitelist
+          cordova prepare android
+          
+          # Build
+          cordova build android --release -- --packageType=apk
+      
+      - name: Sign APK (Debug Keystore)
+        run: |
+          cd app/platforms/android/app/build/outputs/apk/release/
+          
+          # ডিবাগ কীস্টোর তৈরি
+          keytool -genkey -v -keystore debug.keystore -alias debug -keyalg RSA -keysize 2048 -validity 10000 -storepass android -keypass android -dname "CN=RMZ Team, OU=ID, O=RMZ, L=Dhaka, ST=Dhaka, C=BD"
+          
+          # APK সাইন করা
+          jarsigner -verbose -sigalg SHA1withRSA -digestalg SHA1 -keystore debug.keystore -storepass android -keypass android app-release-unsigned.apk debug
+          
+          # Zipalign করা
+          $ANDROID_HOME/build-tools/33.0.0/zipalign -v -p 4 app-release-unsigned.apk RMZ-Tools-Hub.apk
+          
+          mv RMZ-Tools-Hub.apk ../../../../../../../
+      
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: RMZ-Tools-Hub-APK
+          path: RMZ-Tools-Hub.apk
+          compression-level: 0
+      
+      - name: Upload Unsigned APK (Backup)
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release-unsigned
+          path: app/platforms/android/app/build/outputs/apk/release/app-release-unsigned.apk
