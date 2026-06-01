@@ -25,15 +25,12 @@ jobs:
 
       - name: Create Native Webview Project
         run: |
-          # অ্যান্ড্রয়েড প্রোজেক্ট স্ট্রাকচার তৈরি
           mkdir -p app/src/main/java/com/abdul/toolshub
           mkdir -p app/src/main/res/layout
           mkdir -p app/src/main/assets
 
-          # index.html ফাইলটি assets ফোল্ডারে কপি করা
           cp index.html app/src/main/assets/index.html || cp *.html app/src/main/assets/index.html
 
-          # Main Activity (Java Code) তৈরি করা
           cat << 'EOF' > app/src/main/java/com/abdul/toolshub/MainActivity.java
           package com.abdul.toolshub;
           import android.os.Bundle;
@@ -45,7 +42,7 @@ jobs:
           public class MainActivity extends AppCompatActivity {
               @Override
               protected void onCreate(Bundle savedInstanceState) {
-                  super.onCreate(savedInstanceState) ;
+                  super.onCreate(savedInstanceState);
                   WebView webView = new WebView(this);
                   WebSettings webSettings = webView.getSettings();
                   webSettings.setJavaScriptEnabled(true);
@@ -58,7 +55,6 @@ jobs:
           }
           EOF
 
-          # AndroidManifest.xml তৈরি করা
           cat << 'EOF' > app/src/main/AndroidManifest.xml
           <manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.abdul.toolshub">
               <uses-permission android:name="android.permission.INTERNET"/>
@@ -73,19 +69,16 @@ jobs:
           </manifest>
           EOF
 
-          # settings.gradle তৈরি করা
           echo "include ':app'" > settings.gradle
 
-          # build.gradle (Project) তৈরি করা
           cat << 'EOF' > build.gradle
           buildscript {
-              repositories { google() }
+              repositories { google(); mavenCentral() }
               dependencies { classpath 'com.android.tools.build:gradle:8.1.1' }
           }
           allprojects { repositories { google(); mavenCentral() } }
           EOF
 
-          # build.gradle (App) তৈরি করা
           cat << 'EOF' > app/build.gradle
           plugins { id 'com.android.application' }
           android {
@@ -106,7 +99,6 @@ jobs:
 
       - name: Build with Gradle
         run: |
-          chmod +x   # প্রোজেক্টে গ্র্যাডেল সেটআপ ও বিল্ড
           gradle wrapper --gradle-version 8.1.1
           ./gradlew assembleDebug
 
